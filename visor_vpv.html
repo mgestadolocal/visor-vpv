@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visor Territorial — Proyecto VPV</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;height:100vh;display:flex;flex-direction:column}
+header{background:#1a3a5c;color:white;padding:10px 20px;flex-shrink:0}
+header .logo{font-size:10px;font-weight:700;letter-spacing:1px;opacity:0.6}
+header h1{font-size:14px;font-weight:600}
+header .sub{font-size:11px;opacity:0.65;margin-top:1px}
+.main{display:flex;flex:1;overflow:hidden}
+#panel{width:268px;background:white;border-right:1px solid #dde3ec;overflow-y:auto;flex-shrink:0}
+.ps{border-bottom:1px solid #eef0f4}
+.psh{padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#7a8499;background:#f7f8fb;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
+.psh:hover{background:#eef0f6}
+.psh .arr{font-size:9px;transition:transform 0.2s}
+.psh.collapsed .arr{transform:rotate(-90deg)}
+.psb{padding:4px 0}
+.psb.hidden{display:none}
+.lr{display:flex;align-items:center;padding:5px 14px;gap:8px;cursor:pointer}
+.lr:hover{background:#f4f6fb}
+.lr input{cursor:pointer;accent-color:#1a3a5c;width:14px;height:14px;flex-shrink:0}
+.sw{width:24px;height:4px;border-radius:2px;flex-shrink:0}
+.swp{width:20px;height:12px;border-radius:2px;flex-shrink:0;opacity:0.75;border:1.5px solid rgba(0,0,0,0.15)}
+.swd{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.ln{font-size:12px;color:#2d3748;line-height:1.3}
+#mapwrap{position:relative;flex:1}
+#map{height:100%;width:100%}
+.legend{position:absolute;bottom:28px;right:10px;background:white;border-radius:6px;padding:10px 14px;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,0.15);z-index:1000;line-height:1.9}
+.legend .lt{font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#7a8499;margin-bottom:4px}
+.lr2{display:flex;align-items:center;gap:8px}
+.ll{width:26px;height:3px;border-radius:2px;flex-shrink:0}
+#loading{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;z-index:9999;font-size:14px;color:#1a3a5c;font-weight:600}
+.leaflet-popup-content{font-size:12px;max-width:260px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">INVERSIONES COSTA VERDE</div>
+  <h1>Visor Territorial — Proyecto Vientos Pacífico Verde (VPV)</h1>
+  <div class="sub">Screening de riesgos territoriales · Línea AT hasta SE Nueva Nirivilo</div>
+</header>
+<div class="main">
+  <div id="panel">
+    <div class="ps">
+      <div class="psh" onclick="toggleSection(this)">Trazados LAT <span class="arr">▼</span></div>
+      <div class="psb">
+        <label class="lr"><input type="checkbox" checked id="chk_alt1"><div class="sw" style="background:#1a3a5c"></div><span class="ln">Alternativa 1</span></label>
+        <label class="lr"><input type="checkbox" checked id="chk_alt2"><div class="sw" style="background:#e07b2a"></div><span class="ln">Alternativa 2</span></label>
+        <label class="lr"><input type="checkbox" checked id="chk_alt3"><div class="sw" style="background:#c0392b"></div><span class="ln">Alternativa 3 (línea recta)</span></label>
+      </div>
+    </div>
+    <div class="ps">
+      <div class="psh" onclick="toggleSection(this)">Hidrología <span class="arr">▼</span></div>
+      <div class="psb">
+        <label class="lr"><input type="checkbox" id="chk_red_hidro"><div class="sw" style="background:#2980b9"></div><span class="ln">Red hidrográfica</span></label>
+        <label class="lr"><input type="checkbox" id="chk_cuencas"><div class="swp" style="background:#aed6f1;border-color:#2980b9"></div><span class="ln">Cuencas hidrográficas</span></label>
+        <label class="lr"><input type="checkbox" id="chk_acuiferos"><div class="swp" style="background:#85c1e9;border-color:#1a5276"></div><span class="ln">Acuíferos</span></label>
+        <label class="lr"><input type="checkbox" id="chk_isoyetas"><div class="sw" style="background:#5dade2"></div><span class="ln">Isoyetas precipitación anual</span></label>
+      </div>
+    </div>
+    <div class="ps">
+      <div class="psh" onclick="toggleSection(this)">Clima <span class="arr">▼</span></div>
+      <div class="psb">
+        <label class="lr"><input type="checkbox" id="chk_zonas_clima"><div class="swp" style="background:#a9cce3;border-color:#2471a3"></div><span class="ln">Zonas climáticas Köppen-Geiger</span></label>
+      </div>
+    </div>
+    <div class="ps">
+      <div class="psh" onclick="toggleSection(this)">Vegetación y medio natural <span class="arr">▼</span></div>
+      <div class="psb">
+        <label class="lr"><input type="checkbox" id="chk_formaciones_veg"><div class="swp" style="background:#a9dfb2;border-color:#1e8449"></div><span class="ln">Formaciones vegetacionales</span></label>
+        <label class="lr"><input type="checkbox" id="chk_pisos_veg"><div class="swp" style="background:#52be80;border-color:#1a6535"></div><span class="ln">Pisos de vegetación</span></label>
+        <label class="lr"><input type="checkbox" id="chk_incendios"><div class="swp" style="background:#f1948a;border-color:#c0392b"></div><span class="ln">Probabilidad incendios forestales</span></label>
+        <label class="lr"><input type="checkbox" id="chk_geologia"><div class="swp" style="background:#d5d8dc;border-color:#717d7e"></div><span class="ln">Mapa geológico</span></label>
+      </div>
+    </div>
+    <div class="ps">
+      <div class="psh" onclick="toggleSection(this)">Energía e infraestructura <span class="arr">▼</span></div>
+      <div class="psb">
+        <label class="lr"><input type="checkbox" id="chk_lineas_tx"><div class="sw" style="background:#f39c12"></div><span class="ln">Líneas de transmisión eléctrica</span></label>
+        <label class="lr"><input type="checkbox" id="chk_subestaciones"><div class="swd" style="background:#e67e22;border:2px solid #d35400"></div><span class="ln">Subestaciones eléctricas</span></label>
+        <label class="lr"><input type="checkbox" id="chk_concesiones_elec"><div class="swp" style="background:#fdebd0;border-color:#e67e22"></div><span class="ln">Concesiones eléctricas</span></label>
+      </div>
+    </div>
+    <div class="ps">
+      <div class="psh" onclick="toggleSection(this)">Minería <span class="arr">▼</span></div>
+      <div class="psb">
+        <label class="lr"><input type="checkbox" id="chk_concesiones_min"><div class="swp" style="background:#d2b4de;border-color:#7d3c98"></div><span class="ln">Concesiones mineras</span></label>
+        <label class="lr"><input type="checkbox" id="chk_pedimentos"><div class="swp" style="background:#a569bd;border-color:#6c3483"></div><span class="ln">Pedimentos mineros</span></label>
+      </div>
+    </div>
+    <div class="ps">
+      <div class="psh" onclick="toggleSection(this)">Regulatorio y planificación <span class="arr">▼</span></div>
+      <div class="psb">
+        <label class="lr"><input type="checkbox" id="chk_pri"><div class="swp" style="background:#fad7a0;border-color:#ca6f1e"></div><span class="ln">Plan Regulador Intercomunal (PRI)</span></label>
+        <label class="lr"><input type="checkbox" id="chk_unidades_vec"><div class="swp" style="background:#f9e79f;border-color:#b7950b"></div><span class="ln">Unidades vecinales</span></label>
+      </div>
+    </div>
+    <div class="ps">
+      <div class="psh" onclick="toggleSection(this)">Patrimonio y social <span class="arr">▼</span></div>
+      <div class="psb">
+        <label class="lr"><input type="checkbox" id="chk_rutas"><div class="sw" style="background:#a04000"></div><span class="ln">Rutas patrimoniales</span></label>
+      </div>
+    </div>
+    <div class="ps">
+      <div class="psh" onclick="toggleSection(this)">Bosque <span class="arr">▼</span></div>
+      <div class="psb">
+        <label class="lr"><input type="checkbox" id="chk_bosque_nativo"><div class="swp" style="background:#2ecc71;border-color:#1a5c1a"></div><span class="ln">Bosque nativo</span></label>
+        <label class="lr"><input type="checkbox" id="chk_bosque_mixto"><div class="swp" style="background:#deb887;border-color:#8b4513"></div><span class="ln">Bosque mixto</span></label>
+      </div>
+    </div>
+    <div class="ps">
+      <div class="psh" onclick="toggleSection(this)">Predios SII <span class="arr">▼</span></div>
+      <div class="psb">
+        <label class="lr"><input type="checkbox" id="chk_predios_chanco"><div class="swp" style="background:#fef9e7;border-color:#d4ac0d"></div><span class="ln">Predios Chanco</span></label>
+        <label class="lr"><input type="checkbox" id="chk_predios_constitucion"><div class="swp" style="background:#fef9e7;border-color:#d4ac0d"></div><span class="ln">Predios Constitución</span></label>
+        <label class="lr"><input type="checkbox" id="chk_predios_empedrado"><div class="swp" style="background:#fef9e7;border-color:#d4ac0d"></div><span class="ln">Predios Empedrado</span></label>
+        <label class="lr"><input type="checkbox" id="chk_predios_san_javier"><div class="swp" style="background:#fef9e7;border-color:#d4ac0d"></div><span class="ln">Predios San Javier</span></label>
+      </div>
+    </div>
+  </div>
+  <div id="mapwrap">
+    <div id="loading">Cargando mapa…</div>
+    <div id="map"></div>
+    <div class="legend">
+      <div class="lt">Trazados LAT</div>
+      <div class="lr2"><div class="ll" style="background:#1a3a5c"></div>Alternativa 1</div>
+      <div class="lr2"><div class="ll" style="background:#e07b2a"></div>Alternativa 2</div>
+      <div class="lr2"><div class="ll" style="background:#c0392b;border-top:2px dashed #c0392b;height:0"></div>Alternativa 3 (recta)</div>
+    </div>
+  </div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var STYLES = {"alt1": {"color": "#1a3a5c", "weight": 3.5, "opacity": 1}, "alt2": {"color": "#e07b2a", "weight": 3.5, "opacity": 1}, "alt3": {"color": "#c0392b", "weight": 2.5, "opacity": 1, "dashArray": "8 5"}, "red_hidro": {"color": "#2980b9", "weight": 1.2, "opacity": 0.8}, "cuencas": {"color": "#2980b9", "weight": 1, "fillColor": "#aed6f1", "fillOpacity": 0.25}, "acuiferos": {"color": "#1a5276", "weight": 1, "fillColor": "#85c1e9", "fillOpacity": 0.3}, "isoyetas": {"color": "#5dade2", "weight": 1.2, "opacity": 0.8}, "zonas_clima": {"color": "#2471a3", "weight": 0.8, "fillColor": "#a9cce3", "fillOpacity": 0.3}, "formaciones_veg": {"color": "#1e8449", "weight": 0.8, "fillColor": "#a9dfb2", "fillOpacity": 0.4}, "pisos_veg": {"color": "#1a6535", "weight": 0.8, "fillColor": "#52be80", "fillOpacity": 0.35}, "incendios": {"color": "#c0392b", "weight": 0.8, "fillColor": "#f1948a", "fillOpacity": 0.4}, "geologia": {"color": "#717d7e", "weight": 0.8, "fillColor": "#d5d8dc", "fillOpacity": 0.35}, "lineas_tx": {"color": "#f39c12", "weight": 2, "opacity": 0.9}, "concesiones_elec": {"color": "#e67e22", "weight": 0.8, "fillColor": "#fdebd0", "fillOpacity": 0.35}, "concesiones_min": {"color": "#7d3c98", "weight": 0.8, "fillColor": "#d2b4de", "fillOpacity": 0.4}, "pedimentos": {"color": "#6c3483", "weight": 1, "fillColor": "#a569bd", "fillOpacity": 0.5}, "pri": {"color": "#ca6f1e", "weight": 0.8, "fillColor": "#fad7a0", "fillOpacity": 0.35}, "unidades_vec": {"color": "#b7950b", "weight": 0.8, "fillColor": "#f9e79f", "fillOpacity": 0.3}, "rutas": {"color": "#a04000", "weight": 2, "opacity": 0.85}, "bosque_nativo": {"color": "#1a5c1a", "weight": 0.8, "fillColor": "#2ecc71", "fillOpacity": 0.55}, "bosque_mixto": {"color": "#8b4513", "weight": 0.8, "fillColor": "#deb887", "fillOpacity": 0.55}, "predios_chanco": {"color": "#d4ac0d", "weight": 0.4, "fillColor": "#fef9e7", "fillOpacity": 0.3}, "predios_constitucion": {"color": "#d4ac0d", "weight": 0.4, "fillColor": "#fef9e7", "fillOpacity": 0.3}, "predios_empedrado": {"color": "#d4ac0d", "weight": 0.4, "fillColor": "#fef9e7", "fillOpacity": 0.3}, "predios_san_javier": {"color": "#d4ac0d", "weight": 0.4, "fillColor": "#fef9e7", "fillOpacity": 0.3}};
+
+var PROPS = {
+  zonas_clima:['Tipo_Koppe','Denominaci','Precipitac','Temperatur'],
+  formaciones_veg:['formacion','distrito','region'],
+  pisos_veg:['Piso','Formacion'],
+  incendios:['Incidencia','inc/km2'],
+  geologia:['Era','Epoca','Geologia'],
+  pri:['ZONA','NOMBRE','CAT','UPERM','UPROH'],
+  unidades_vec:['t_uv_nom','t_com_nom','t_prov_nom'],
+  concesiones_min:['nombre','tipo','titular','dueno'],
+  pedimentos:['nombre','tipo','titular','hectareas','solicitud','comuna'],
+  cuencas:['Nombre_Cue','Region'],
+  acuiferos:['Nombre_Acu','SHAC','Region'],
+  rutas:['Circuito','Nombre_Rut'],
+  lineas_tx:['NOMBRE','TIPO','TENSION_KV','PROPIEDAD','ESTADO'],
+  concesiones_elec:['Sigla','Nombre_Con'],
+  subestaciones:['NOMBRE','TIPO','TENSION_KV','PROPIEDAD','ESTADO'],
+  red_hidro:['Nombre','Tipo_Dren','Comuna'],
+  isoyetas:['Valor_MM','Variable'],
+  predios_chanco:['rol','eacsDescripcion','manzana'],
+  predios_constitucion:['rol','eacsDescripcion','manzana'],
+  predios_empedrado:['rol','eacsDescripcion','manzana'],
+  predios_san_javier:['rol','eacsDescripcion','manzana'],
+  bosque_nativo:['Name'],bosque_mixto:['Name'],
+};
+
+var LABELS = {
+  alt1:'Alternativa 1',alt2:'Alternativa 2',alt3:'Alternativa 3',
+  red_hidro:'Red hidrográfica',cuencas:'Cuencas',acuiferos:'Acuíferos',
+  isoyetas:'Isoyetas',zonas_clima:'Zona climática',
+  formaciones_veg:'Formación vegetacional',pisos_veg:'Piso de vegetación',
+  incendios:'Incendios forestales',geologia:'Geología',
+  lineas_tx:'Línea de transmisión',concesiones_elec:'Concesión eléctrica',
+  concesiones_min:'Concesión minera',pedimentos:'Pedimento minero',
+  pri:'PRI',unidades_vec:'Unidad vecinal',rutas:'Ruta patrimonial',
+  subestaciones:'Subestación eléctrica',bosque_nativo:'Bosque nativo',
+  bosque_mixto:'Bosque mixto',predios_chanco:'Predio Chanco',
+  predios_constitucion:'Predio Constitución',predios_empedrado:'Predio Empedrado',
+  predios_san_javier:'Predio San Javier',
+};
+
+var REMOTE_URLS = {
+  alt1:'data/alt1.geojson',alt2:'data/alt2.geojson',alt3:'data/alt3.geojson',
+  red_hidro:'data/red_hidro.geojson',cuencas:'data/cuencas.geojson',
+  acuiferos:'data/acuiferos.geojson',isoyetas:'data/isoyetas.geojson',
+  zonas_clima:'data/zonas_clima.geojson',formaciones_veg:'data/formaciones_veg.geojson',
+  pisos_veg:'data/pisos_veg.geojson',incendios:'data/incendios.geojson',
+  geologia:'data/geologia.geojson',lineas_tx:'data/lineas_tx.geojson',
+  concesiones_elec:'data/concesiones_elec.geojson',concesiones_min:'data/concesiones_min.geojson',
+  pedimentos:'data/pedimentos.geojson',pri:'data/pri.geojson',
+  unidades_vec:'data/unidades_vec.geojson',rutas:'data/rutas.geojson',
+  subestaciones:'data/subestaciones.geojson',
+  bosque_nativo:'data/bosque_nativo.geojson',bosque_mixto:'data/bosque_mixto.geojson',
+  predios_chanco:'data/predios_sii_chanco.geojson',
+  predios_constitucion:'data/predios_sii_constitucion.geojson',
+  predios_empedrado:'data/predios_sii_empedrado.geojson',
+  predios_san_javier:['data/predios_sii_san_javier_p1.geojson','data/predios_sii_san_javier_p2.geojson'],
+};
+
+var map = L.map('map').setView([-35.58,-72.37],10);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:18}).addTo(map);
+
+var layers={}, loading={};
+
+function popup(key,props){
+  var keys=PROPS[key]||Object.keys(props).slice(0,4);
+  var rows='';
+  keys.forEach(function(k){
+    if(props[k]!==null&&props[k]!==undefined&&props[k]!=='')
+      rows+='<tr><td style="color:#7a8499;padding-right:8px">'+k+'</td><td><b>'+props[k]+'</b></td></tr>';
+  });
+  return '<b style="color:#1a3a5c">'+(LABELS[key]||key)+'</b>'+(rows?'<br><table style="margin-top:5px;font-size:11px">'+rows+'</table>':'');
+}
+
+function makeLayer(key,gj){
+  if(key==='subestaciones'){
+    return L.geoJSON(gj,{
+      pointToLayer:function(f,ll){return L.circleMarker(ll,{radius:7,fillColor:'#e67e22',color:'#d35400',weight:2,fillOpacity:0.9});},
+      onEachFeature:function(f,l){l.bindPopup(popup(key,f.properties));}
+    });
+  }
+  return L.geoJSON(gj,{
+    style:STYLES[key]||{color:'#888',weight:1},
+    onEachFeature:function(f,l){l.bindPopup(popup(key,f.properties));}
+  });
+}
+
+var loadEl = document.getElementById('loading');
+
+function loadLayer(key,show){
+  if(layers[key]){
+    if(show)map.addLayer(layers[key]); else map.removeLayer(layers[key]);
+    return;
+  }
+  if(!show)return;
+  if(loading[key])return;
+  loading[key]=true;
+  loadEl.style.display='flex';
+  loadEl.textContent='Cargando '+(LABELS[key]||key)+'…';
+
+  var urls=REMOTE_URLS[key];
+  if(!Array.isArray(urls))urls=[urls];
+  var parts=[];
+  urls.forEach(function(url){
+    fetch(url).then(function(r){return r.json();}).then(function(gj){
+      parts.push(gj.features);
+      if(parts.length===urls.length){
+        var feats=parts.reduce(function(a,b){return a.concat(b);});
+        layers[key]=makeLayer(key,{type:'FeatureCollection',features:feats});
+        map.addLayer(layers[key]);
+        loadEl.style.display='none';
+      }
+    }).catch(function(e){console.error(key,e);loadEl.style.display='none';});
+  });
+}
+
+function toggleSection(h){
+  h.classList.toggle('collapsed');
+  h.nextElementSibling.classList.toggle('hidden');
+}
+
+document.querySelectorAll('input[type=checkbox]').forEach(function(cb){
+  var key=cb.id.replace('chk_','');
+  cb.addEventListener('change',function(){loadLayer(key,this.checked);});
+});
+
+// Cargar trazados al inicio
+['alt1','alt2','alt3'].forEach(function(k){loadLayer(k,true);});
+
+// Zoom inicial
+fetch('data/alt1.geojson').then(function(r){return r.json();}).then(function(gj){
+  var b=L.geoJSON(gj).getBounds();
+  map.fitBounds(b,{padding:[60,60]});
+  loadEl.style.display='none';
+});
+</script>
+</body>
+</html>
