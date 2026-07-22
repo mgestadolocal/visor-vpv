@@ -821,6 +821,109 @@ LAYERS_DATA["zonas_clima"] = {
   };
 
   document.getElementById('loading').style.display = 'none';
+
+  // Capas remotas via fetch
+  var REMOTE_STYLES = {
+    bosque_nativo:        { color: '#0d3d14', weight: 0.5, fillColor: '#1d6a2a', fillOpacity: 0.5 },
+    bosque_mixto:         { color: '#2d6b1e', weight: 0.5, fillColor: '#5a9e4a', fillOpacity: 0.45 },
+    predios_chanco:       { color: '#d4ac0d', weight: 0.4, fillColor: '#fef9e7', fillOpacity: 0.3 },
+    predios_constitucion: { color: '#d4ac0d', weight: 0.4, fillColor: '#fef9e7', fillOpacity: 0.3 },
+    predios_empedrado:    { color: '#d4ac0d', weight: 0.4, fillColor: '#fef9e7', fillOpacity: 0.3 },
+    predios_san_javier:   { color: '#d4ac0d', weight: 0.4, fillColor: '#fef9e7', fillOpacity: 0.3 },
+  };
+  var REMOTE_PROP_KEYS = {
+    bosque_nativo:        ['Name','description'],
+    bosque_mixto:         ['Name','description'],
+    predios_chanco:       ['rol','eacsDescripcion','manzana','predio'],
+    predios_constitucion: ['rol','eacsDescripcion','manzana','predio'],
+    predios_empedrado:    ['rol','eacsDescripcion','manzana','predio'],
+    predios_san_javier:   ['rol','eacsDescripcion','manzana','predio'],
+  };
+  var REMOTE_LABELS = {
+    bosque_nativo:'Bosque nativo', bosque_mixto:'Bosque mixto',
+    predios_chanco:'Predio Chanco', predios_constitucion:'Predio Constitución',
+    predios_empedrado:'Predio Empedrado', predios_san_javier:'Predio San Javier',
+  };
+  var REMOTE_URLS = {
+    bosque_nativo:        'data/bosque_nativo.geojson',
+    bosque_mixto:         'data/bosque_mixto.geojson',
+    predios_chanco:       'data/predios_sii_chanco.geojson',
+    predios_constitucion: 'data/predios_sii_constitucion.geojson',
+    predios_empedrado:    'data/predios_sii_empedrado.geojson',
+  };
+
+  var loadingLayers = {};
+
+  function buildRemoteLayer(key, geojson) {
+    var style = REMOTE_STYLES[key];
+    var propKeys = REMOTE_PROP_KEYS[key] || [];
+    var label = REMOTE_LABELS[key] || key;
+    return L.geoJSON(geojson, {
+      style: style,
+      onEachFeature: function(f, l) {
+        var props = f.properties || {};
+        var rows = '';
+        propKeys.forEach(function(k) {
+          if (props[k] !== null && props[k] !== undefined && props[k] !== '')
+            rows += '<tr><td style="color:#7a8499;padding-right:8px">' + k + '</td><td><b>' + props[k] + '</b></td></tr>';
+        });
+        l.bindPopup('<b style="color:#1a3a5c">' + label + '</b>' + (rows ? '<br><table style="margin-top:5px;font-size:11px">' + rows + '</table>' : ''));
+      }
+    });
+  }
+
+  function loadRemoteLayer(key, show) {
+    if (leafletLayers[key]) {
+      if (show) map.addLayer(leafletLayers[key]);
+      else map.removeLayer(leafletLayers[key]);
+      return;
+    }
+    if (!show) return;
+    if (loadingLayers[key]) return;
+    loadingLayers[key] = true;
+
+    var loadingEl = document.getElementById('loading');
+    loadingEl.style.display = 'flex';
+    loadingEl.textContent = 'Cargando ' + (REMOTE_LABELS[key] || key) + '…';
+
+    if (key === 'predios_san_javier') {
+      var parts = [];
+      var urls = ['data/predios_sii_san_javier_p1.geojson', 'data/predios_sii_san_javier_p2.geojson'];
+      urls.forEach(function(url) {
+        fetch(url).then(function(r) { return r.json(); }).then(function(gj) {
+          parts.push(gj.features);
+          if (parts.length === 2) {
+            var combined = { type: 'FeatureCollection', features: parts[0].concat(parts[1]) };
+            leafletLayers[key] = buildRemoteLayer(key, combined);
+            map.addLayer(leafletLayers[key]);
+            loadingEl.style.display = 'none';
+          }
+        }).catch(function(e) {
+          console.error('Error cargando ' + url, e);
+          loadingEl.style.display = 'none';
+        });
+      });
+    } else {
+      fetch(REMOTE_URLS[key]).then(function(r) { return r.json(); }).then(function(gj) {
+        leafletLayers[key] = buildRemoteLayer(key, gj);
+        map.addLayer(leafletLayers[key]);
+        loadingEl.style.display = 'none';
+      }).catch(function(e) {
+        console.error('Error cargando ' + key, e);
+        loadingEl.style.display = 'none';
+      });
+    }
+  }
+
+  var _origToggle = window.toggleLayer;
+  window.toggleLayer = function(key, show) {
+    if (REMOTE_STYLES[key] !== undefined) {
+      loadRemoteLayer(key, show);
+    } else {
+      _origToggle(key, show);
+    }
+  };
+
 })();
 
 </script>
